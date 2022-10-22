@@ -37,7 +37,7 @@ long long timeToLLong(std::string sTime) {
 	return std::stoll(h, nullptr) * 3600 + std::stoll(m, nullptr) * 60 + std::stoll(sTime, nullptr);
 }
 
-bool addToFile(std::fstream &fileOverwrite, char currentTitle[]) {
+bool addToFile(std::fstream& fileOverwrite, char currentTitle[]) {
 	std::string title, time, newLine;
 	std::string previousTitle = "", previousTime = "999999:99:99";
 	bool match = false;
@@ -53,16 +53,17 @@ bool addToFile(std::fstream &fileOverwrite, char currentTitle[]) {
 
 		if (timeToLLong(time) > timeToLLong(previousTime)) { // sort: if this entry has a greater time value than the previous one, swap them
 			fileOverwrite.seekp((int)fileOverwrite.tellp() - 13 - 150 - 13 - 150 - 2); // move cursor to start of previous title line; 150 instead of the line length 128 since GetModuleFileNameExA() adds a 22-character sequence at the end
-			fileOverwrite << title;
-			fileOverwrite.seekp((int)fileOverwrite.tellp() + 1); // move cursor to start of previous time line; these numbers were worked out through trial & error after an annoying bug involving them happened
-			fileOverwrite << time;
-			fileOverwrite.seekp((int)fileOverwrite.tellp() + 2); // move cursor to start of current title line
-			fileOverwrite << previousTitle;
-			fileOverwrite.seekp((int)fileOverwrite.tellp() + 1); // move cursor to start of current time line
-			fileOverwrite << previousTime;
+			fileOverwrite << title << '\n';
+			//fileOverwrite.seekp((int)fileOverwrite.tellp() + 1); // move cursor to start of previous time line; these numbers were worked out through trial & error after an annoying bug involving them happened
+			fileOverwrite << time << "\n\n";
+			//fileOverwrite.seekp((int)fileOverwrite.tellp() + 2); // move cursor to start of current title line
+			fileOverwrite << previousTitle << '\n';
+			//fileOverwrite.seekp((int)fileOverwrite.tellp() + 1); // move cursor to start of current time line
+			fileOverwrite << previousTime << "\n\n";
 		} else {
 			previousTitle = title;
 			previousTime = time;
+			fileOverwrite << "\n";
 			//previousTime.substr(previousTime.length() - 1);
 			//testfile << "TEst";
 		}
@@ -70,8 +71,9 @@ bool addToFile(std::fstream &fileOverwrite, char currentTitle[]) {
 		if (match) {
 			return true;
 		}
-		
-		getline(fileOverwrite, newLine); // move cursor past extra newline at the end of each entry
+
+		//getline(fileOverwrite, newLine); // move cursor past extra newline at the end of each entry
+		//fileOverwrite.seekp((int)fileOverwrite.tellp() + 2); // doesn't work
 	}
 
 	return false;
@@ -97,7 +99,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		fileOverwriteA_exe.open(ENV + "\\Documents\\aggregate_exe.txt", std::ios::in | std::ios::out | std::ios::binary);
 		fileAppendA_title.open(ENV + "\\Documents\\aggregate_title.txt", std::ios::app | std::ios::binary);
 		fileOverwriteA_title.open(ENV + "\\Documents\\aggregate_title.txt", std::ios::in | std::ios::out | std::ios::binary);
-		
+
 		GetWindowThreadProcessId(GetForegroundWindow(), &identifier); // get window exe name
 		len = GetModuleFileNameExA(OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, identifier), NULL, currentTitle, 128);
 		if (len == 0 || std::strstr(currentTitle, "LockApp")) { // todo: occasionally copying in empty currentTitles with just 150 spaces; check if problem goes away if i do this if check
@@ -111,11 +113,14 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 			fileAppendA_exe << currentTitle << "\n" << "000000:00:01" << "\n\n"; // else add entry if it doesn't exist
 		}
 
-		//GetWindowTextA(GetForegroundWindow(), currentTitle, 128); // get window title name
-		//if (!addToFile(fileOverwriteA_title, currentTitle)) {
-		//	fileAppendA_title << currentTitle << '\n' << "000000:00:01" << "\n\n";
-		//}
-	
+		len = GetWindowTextA(GetForegroundWindow(), currentTitle, 128); // get window title name
+		for (int i = len; i < sizeof(currentTitle) + 22; i++) { // apparently currentTitle is given an additional 22-character sequence "ллллллллллллллллллллд," at the end
+			currentTitle[i] = ' ';
+		}
+		if (!addToFile(fileOverwriteA_title, currentTitle)) {
+			fileAppendA_title << currentTitle << '\n' << "000000:00:01" << "\n\n";
+		}
+
 	end_loop:
 		fileAppendD_exe.close();
 		fileOverwriteD_exe.close();
