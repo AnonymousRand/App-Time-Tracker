@@ -37,7 +37,8 @@ long long timeToLLong(std::string sTime) {
 	return std::stoll(h, nullptr) * 3600 + std::stoll(m, nullptr) * 60 + std::stoll(sTime, nullptr);
 }
 
-void addToFile(std::fstream& fileOverwrite, std::ofstream& fileAppend, char currentTitle[]) {
+void addToFile(std::fstream& fileOverwrite, std::ofstream& fileAppend, wchar_t currentTitle[]) {
+	std::wstring tempTitle = std::wstring(currentTitle);
 	std::string title, time, newLine;
 	std::string previousTitle = "", previousTime = "999999:99:99";
 	bool match = false;
@@ -46,30 +47,32 @@ void addToFile(std::fstream& fileOverwrite, std::ofstream& fileAppend, char curr
 	while (getline(fileOverwrite, title)) {
 		getline(fileOverwrite, time);
 
+		if (sizeof(time) > 0 || sizeof(title) > 0 || true) {
+			testfile << "breakpoint test";
+		}
+
 		// if yes, update time
-		if (title == std::string(currentTitle)) {
+		if (title == std::string(tempTitle.begin(), tempTitle.end())) {
+			match = true;
 			fileOverwrite.seekp((int)fileOverwrite.tellp() - 13); // move cursor to start of time line
 			time = timeToString(timeToLLong(time) + 1);
 			fileOverwrite << time;
-			match = true;
 		}
 
 		// sort: if this entry has a greater time value than the previous one, swap them
 		if (timeToLLong(time) > timeToLLong(previousTime)) {
-			fileOverwrite.seekp((int)fileOverwrite.tellp() - 13 - 150 - 13 - 150 - 2); // move cursor to start of previous title line; 150 instead of the line length 128 since GetModuleFileNameExA() adds a 22-character sequence at the end
-			fileOverwrite << title << '\n'; // move cursor to start of previous title line; 150 instead of the line length 128 since GetModuleFileNameExA() adds a 22-character sequence at the end
+			fileOverwrite.seekp((int)fileOverwrite.tellp() - 13 - 155 - 13 - 155 - 2); // move cursor to start of previous title line; 155 instead of the line length 128 since GetModuleFileNameExW() adds a 27-character sequence at the end
+			fileOverwrite << title << '\n'; // move cursor to start of previous time line
 			//fileOverwrite.seekp((int)fileOverwrite.tellp() + 1); // move cursor to start of previous time line; these numbers were worked out through trial & error after an annoying bug involving them happened
-			fileOverwrite << time << "\n\n"; // move cursor to start of previous time line
+			fileOverwrite << time << "\n\n"; // move cursor to start of current title line
 			//fileOverwrite.seekp((int)fileOverwrite.tellp() + 2); // move cursor to start of current title line
-			fileOverwrite << previousTitle << '\n'; // move cursor to start of current title line
+			fileOverwrite << previousTitle << '\n'; // move cursor to start of current time line
 			//fileOverwrite.seekp((int)fileOverwrite.tellp() + 1); // move cursor to start of current time line
-			fileOverwrite << previousTime << "\n\n"; // move cursor to start of current time line
+			fileOverwrite << previousTime << "\n\n";
 		} else {
 			previousTitle = title;
 			previousTime = time;
-			fileOverwrite << "\n";
-			//previousTime.substr(previousTime.length() - 1);
-			//testfile << "TEst";
+			fileOverwrite << '\n'; // move cursor past extra newline at the end of each entry
 		}
 
 		if (match) {
@@ -81,7 +84,7 @@ void addToFile(std::fstream& fileOverwrite, std::ofstream& fileAppend, char curr
 	}
 
 	// else add entry if it doesn't exist
-	fileAppend << currentTitle << "\n" << "000000:00:01" << "\n\n";
+	fileAppend << std::string(tempTitle.begin(), tempTitle.end()) << "\n" << "000000:00:01" << "\n\n";
 }
 
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPTSTR lpCmdLine, _In_ int nCmdShow) {
@@ -90,7 +93,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 	testfile.open("test.txt", std::ios::app); // test
 
 	const std::string ENV = std::string(std::getenv("USERPROFILE"));
-	char currentTitle[128];
+	wchar_t currentTitle[128];
 	DWORD identifier;
 	int len;
 
@@ -107,19 +110,19 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		
 		// get window exe name
 		GetWindowThreadProcessId(GetForegroundWindow(), &identifier);
-		len = GetModuleFileNameExA(OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, identifier), NULL, currentTitle, 128);
-		if (len == 0 || std::strstr(currentTitle, "LockApp")) {
-			continue;
-		}
-		for (int i = len; i < sizeof(currentTitle) + 22; i++) { // apparently currentTitle is given an additional 22-character sequence at the end
-			currentTitle[i] = ' ';
+		len = GetModuleFileNameExW(OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, identifier), NULL, currentTitle, 128);
+		//if (len == 0 || std::strstr(currentTitle, "LockApp")) {
+		//	continue;
+		//}
+		for (int i = len; i < sizeof(currentTitle) / 2 + 27; i++) { // apparently currentTitle is given an additional 27-character sequence at the end
+			currentTitle[i] = L' ';
 		}
 		addToFile(fileOverwriteA_exe, fileAppendA_exe, currentTitle);
 
 		// get window title name
-		len = GetWindowTextA(GetForegroundWindow(), currentTitle, 128);
-		for (int i = len; i < sizeof(currentTitle) + 22; i++) {
-			currentTitle[i] = ' ';
+		len = GetWindowTextW(GetForegroundWindow(), currentTitle, 128);
+		for (int i = len; i < sizeof(currentTitle) / 2 + 27; i++) {
+			currentTitle[i] = L' ';
 		}
 		addToFile(fileOverwriteA_title, fileAppendA_title, currentTitle);
 
@@ -134,6 +137,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		testfile.close();
 	}
 
+	// todo: implement unicode
 	// todo: use functions to implement daily
 	// todo: remove lockapp.exe? (if string contains LockApp)
 	// todo: test accuracy of not using system time
