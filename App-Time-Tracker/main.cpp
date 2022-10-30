@@ -14,48 +14,47 @@
 
 std::fstream testfile; // test
 
-std::string timeToString(long long seconds) {
+std::wstring timeToWString(long long seconds) {
 	int h = seconds / 3600;
 	int m = (seconds - h * 3600) / 60;
 	int s = seconds - h * 3600 - m * 60;
 	if (h == 0) {
-		return std::string("000000:") + (m < 10 ? "0" : "")
-			+ std::to_string(m) + ":" + (s < 10 ? "0" : "")
-			+ std::to_string(s);
+		return std::wstring(L"000000:") + (m < 10 ? L"0" : L"")
+			+ std::to_wstring(m) + L":" + (s < 10 ? L"0" : L"")
+			+ std::to_wstring(s);
 	}
-	return std::string(5 - (int)(log(h) / log(10)), '0')
-		+ std::to_string(h) + ":" + (m < 10 ? "0" : "")
-		+ std::to_string(m) + ":" + (s < 10 ? "0" : "")
-		+ std::to_string(s);
+	return std::wstring(5 - (int)(log(h) / log(10)), L'0')
+		+ std::to_wstring(h) + L":" + (m < 10 ? L"0" : L"")
+		+ std::to_wstring(m) + L":" + (s < 10 ? L"0" : L"")
+		+ std::to_wstring(s);
 }
 
-long long timeToLLong(std::string sTime) {
-	std::string h = sTime.substr(0, sTime.find(":"));
-	sTime.erase(0, sTime.find(":") + 1);
-	std::string m = sTime.substr(0, sTime.find(":"));
-	sTime.erase(0, sTime.find(":") + 1);
+long long timeToLLong(std::wstring sTime) {
+	std::wstring h = sTime.substr(0, sTime.find(L':'));
+	sTime.erase(0, sTime.find(L':') + 1);
+	std::wstring m = sTime.substr(0, sTime.find(L':'));
+	sTime.erase(0, sTime.find(L':') + 1);
 	return std::stoll(h, nullptr) * 3600 + std::stoll(m, nullptr) * 60 + std::stoll(sTime, nullptr);
 }
 
-void addToFile(std::fstream& fileOverwrite, std::ofstream& fileAppend, wchar_t currentTitle[]) {
-	std::wstring tempTitle = std::wstring(currentTitle);
-	std::string title, time, newLine;
-	std::string previousTitle = "", previousTime = "999999:99:99";
+void addToFile(std::wfstream &fileOverwrite, std::wofstream &fileAppend, std::wstring currentTitle) {
+	std::wstring title, time, newLine;
+	std::wstring previousTitle = L"", previousTime = L"999999:99:99";
 	bool match = false;
 
 	// read through file and check if current active name already has an entry
 	while (getline(fileOverwrite, title)) {
 		getline(fileOverwrite, time);
 
-		if (sizeof(time) > 0 || sizeof(title) > 0 || true) {
+		if (sizeof(time) > 0 || sizeof(title) > 0 || sizeof(currentTitle) > 0 || true) {
 			testfile << "breakpoint test";
 		}
 
 		// if yes, update time
-		if (title == std::string(tempTitle.begin(), tempTitle.end())) {
+		if (title == currentTitle) {
 			match = true;
-			fileOverwrite.seekp((int)fileOverwrite.tellp() - 13); // move cursor to start of time line
-			time = timeToString(timeToLLong(time) + 1);
+			fileOverwrite.seekp((int)fileOverwrite.tellp() - 13); // move cursor to start of current time line
+			time = timeToWString(timeToLLong(time) + 1);
 			fileOverwrite << time;
 		}
 
@@ -63,11 +62,8 @@ void addToFile(std::fstream& fileOverwrite, std::ofstream& fileAppend, wchar_t c
 		if (timeToLLong(time) > timeToLLong(previousTime)) {
 			fileOverwrite.seekp((int)fileOverwrite.tellp() - 13 - 155 - 13 - 155 - 2); // move cursor to start of previous title line; 155 instead of the line length 128 since GetModuleFileNameExW() adds a 27-character sequence at the end
 			fileOverwrite << title << '\n'; // move cursor to start of previous time line
-			//fileOverwrite.seekp((int)fileOverwrite.tellp() + 1); // move cursor to start of previous time line; these numbers were worked out through trial & error after an annoying bug involving them happened
 			fileOverwrite << time << "\n\n"; // move cursor to start of current title line
-			//fileOverwrite.seekp((int)fileOverwrite.tellp() + 2); // move cursor to start of current title line
 			fileOverwrite << previousTitle << '\n'; // move cursor to start of current time line
-			//fileOverwrite.seekp((int)fileOverwrite.tellp() + 1); // move cursor to start of current time line
 			fileOverwrite << previousTime << "\n\n";
 		} else {
 			previousTitle = title;
@@ -78,18 +74,15 @@ void addToFile(std::fstream& fileOverwrite, std::ofstream& fileAppend, wchar_t c
 		if (match) {
 			return;
 		}
-
-		//getline(fileOverwrite, newLine); // move cursor past extra newline at the end of each entry
-		//fileOverwrite.seekp((int)fileOverwrite.tellp() + 2); // doesn't work
 	}
 
 	// else add entry if it doesn't exist
-	fileAppend << std::string(tempTitle.begin(), tempTitle.end()) << "\n" << "000000:00:01" << "\n\n";
+	fileAppend << currentTitle << L'\n' << L"000000:00:01" << L"\n\n";
 }
 
 int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPTSTR lpCmdLine, _In_ int nCmdShow) {
-	std::ofstream fileAppendD_exe, fileAppendD_title, fileAppendA_exe, fileAppendA_title;
-	std::fstream fileOverwriteD_exe, fileOverwriteD_title, fileOverwriteA_exe, fileOverwriteA_title;
+	std::wofstream fileAppendD_exe, fileAppendD_title, fileAppendA_exe, fileAppendA_title;
+	std::wfstream fileOverwriteD_exe, fileOverwriteD_title, fileOverwriteA_exe, fileOverwriteA_title;
 	testfile.open("test.txt", std::ios::app); // test
 
 	const std::string ENV = std::string(std::getenv("USERPROFILE"));
@@ -107,7 +100,7 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		fileOverwriteA_exe.open(ENV + "\\Documents\\aggregate_exe.txt", std::ios::in | std::ios::out | std::ios::binary);
 		fileAppendA_title.open(ENV + "\\Documents\\aggregate_title.txt", std::ios::app | std::ios::binary);
 		fileOverwriteA_title.open(ENV + "\\Documents\\aggregate_title.txt", std::ios::in | std::ios::out | std::ios::binary);
-		
+
 		// get window exe name
 		GetWindowThreadProcessId(GetForegroundWindow(), &identifier);
 		len = GetModuleFileNameExW(OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, identifier), NULL, currentTitle, 128);
@@ -117,14 +110,14 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 		for (int i = len; i < sizeof(currentTitle) / 2 + 27; i++) { // apparently currentTitle is given an additional 27-character sequence at the end
 			currentTitle[i] = L' ';
 		}
-		addToFile(fileOverwriteA_exe, fileAppendA_exe, currentTitle);
+		addToFile(fileOverwriteA_exe, fileAppendA_exe, std::wstring(currentTitle));
 
 		// get window title name
 		len = GetWindowTextW(GetForegroundWindow(), currentTitle, 128);
 		for (int i = len; i < sizeof(currentTitle) / 2 + 27; i++) {
 			currentTitle[i] = L' ';
 		}
-		addToFile(fileOverwriteA_title, fileAppendA_title, currentTitle);
+		addToFile(fileOverwriteA_title, fileAppendA_title, std::wstring(currentTitle));
 
 		fileAppendD_exe.close();
 		fileOverwriteD_exe.close();
